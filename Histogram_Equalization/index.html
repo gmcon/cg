@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histogram Equalization</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body bgcolor="#f9e79f">
+    <h1>Histogram Equalization</h1>
+
+    <div id="descripcion">
+        <p>
+        La ecualización de histograma es un proceso que ajusta el contraste de una imagen en escala de grises, 
+        distribuyendo uniformemente los niveles de intensidad de los píxeles. Este proceso mejora la visibilidad 
+        de los detalles en imágenes donde los niveles de intensidad están agrupados en un rango estrecho.
+        </p>
+    </div>
+
+    <input type="file" id="upload" accept="image/*">
+    <canvas id="originalImage"></canvas>
+    <canvas id="equalizedImage"></canvas>
+    <button onclick="AplicarEqualization()">Aplicar Equalization</button>
+    <button onclick="reset()">Reset</button>
+
+    <script>
+        const originalCanvas = document.getElementById('originalImage');
+        const equalizedCanvas = document.getElementById('equalizedImage');
+        const ctxOriginal = originalCanvas.getContext('2d');
+        const ctxEqualized = equalizedCanvas.getContext('2d');
+
+        let originalImageData = null;
+
+        document.getElementById('upload').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    originalCanvas.width = img.width;
+                    originalCanvas.height = img.height;
+                    equalizedCanvas.width = img.width;  // Asegurar que el tamaño de los dos canvas sea el mismo
+                    equalizedCanvas.height = img.height;
+                    ctxOriginal.drawImage(img, 0, 0);
+                    originalImageData = ctxOriginal.getImageData(0, 0, img.width, img.height);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        function AplicarEqualization() {
+            if (!originalImageData) return;
+
+            const imgData = ctxOriginal.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
+            const pixels = imgData.data;
+            const histogram = new Array(256).fill(0);
+            const cdf = new Array(256).fill(0);
+            const equalizedPixels = new Uint8ClampedArray(pixels.length);
+
+            // Calcular histograma
+            for (let i = 0; i < pixels.length; i += 4) {
+                const brightness = pixels[i];
+                histogram[brightness]++;
+            }
+
+            // Calcular CDF
+            cdf[0] = histogram[0];
+            for (let i = 1; i < 256; i++) {
+                cdf[i] = cdf[i - 1] + histogram[i];
+            }
+
+            const cdfMin = cdf.find(val => val > 0);
+            const numPixels = pixels.length / 4;
+
+            // Aplicar ecualización
+            for (let i = 0; i < pixels.length; i += 4) {
+                const brightness = pixels[i];
+                const equalizedValue = Math.round(((cdf[brightness] - cdfMin) / (numPixels - cdfMin)) * 255);
+                equalizedPixels[i] = equalizedPixels[i + 1] = equalizedPixels[i + 2] = equalizedValue;
+                equalizedPixels[i + 3] = pixels[i + 3]; // Mantener la transparencia
+            }
+
+            ctxEqualized.putImageData(new ImageData(equalizedPixels, originalCanvas.width, originalCanvas.height), 0, 0);
+        }
+
+        function reset() {
+            if (originalImageData) {
+                ctxOriginal.putImageData(originalImageData, 0, 0);
+                ctxEqualized.clearRect(0, 0, equalizedCanvas.width, equalizedCanvas.height);
+            }
+        }
+    </script>
+</body>
+</html>

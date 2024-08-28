@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histogram Specification</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body bgcolor=cyan>
+    <h1>Histogram Specification</h1>
+
+    <div id="descripcion">
+        <p>
+        La especificación de histograma es una técnica que permite transformar la distribución de intensidad de 
+        una imagen para que coincida con una distribución objetivo específica. Este proceso es útil para ajustar 
+        la apariencia de la imagen según necesidades predeterminadas.
+        </p>
+   </div>
+
+
+    <input type="file" id="upload" accept="image/*">
+    <canvas id="specifiedImage"></canvas>
+    <button onclick="AplicarSpecification()">Aplicar Specification</button>
+    <button onclick="reset()">Reset</button>
+
+    <script>
+        const specifiedCanvas = document.getElementById('specifiedImage');
+        const ctxSpecified = specifiedCanvas.getContext('2d');
+
+        let originalImageData = null;
+
+        document.getElementById('upload').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    specifiedCanvas.width = img.width;
+                    specifiedCanvas.height = img.height;
+                    ctxSpecified.drawImage(img, 0, 0);
+                    originalImageData = ctxSpecified.getImageData(0, 0, img.width, img.height);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        function AplicarSpecification() {
+            if (!originalImageData) return;
+
+            const imgData = ctxSpecified.getImageData(0, 0, specifiedCanvas.width, specifiedCanvas.height);
+            const pixels = imgData.data;
+            const histogram = new Array(256).fill(0);
+            const cdf = new Array(256).fill(0);
+            const specifiedPixels = new Uint8ClampedArray(pixels.length);
+
+            // Calcular histograma
+            for (let i = 0; i < pixels.length; i += 4) {
+                const brightness = pixels[i];
+                histogram[brightness]++;
+            }
+
+            // Calcular CDF
+            cdf[0] = histogram[0];
+            for (let i = 1; i < 256; i++) {
+                cdf[i] = cdf[i - 1] + histogram[i];
+            }
+
+            const cdfMin = cdf.find(val => val > 0);
+            const numPixels = pixels.length / 4;
+
+            // Aplicar especificación de histograma
+            for (let i = 0; i < pixels.length; i += 4) {
+                const brightness = pixels[i];
+                const specifiedValue = Math.round(((cdf[brightness] - cdfMin) / (numPixels - cdfMin)) * 255);
+                specifiedPixels[i] = specifiedPixels[i + 1] = specifiedPixels[i + 2] = specifiedValue;
+                specifiedPixels[i + 3] = pixels[i + 3]; // Mantener la transparencia
+            }
+
+            ctxSpecified.putImageData(new ImageData(specifiedPixels, specifiedCanvas.width, specifiedCanvas.height), 0, 0);
+        }
+
+        function reset() {
+            if (originalImageData) {
+                ctxSpecified.putImageData(originalImageData, 0, 0);
+            }
+        }
+    </script>
+</body>
+</html>

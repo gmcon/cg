@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piecewise Linear Distribution</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body bgcolor="#f5b7b1">
+    <h1>Piecewise Linear Distribution</h1>
+
+    <div id="descripcion">
+        <p>
+        El ajuste a una distribución lineal por tramos es una técnica que permite modificar la distribución de 
+        los niveles de intensidad de una imagen en base a tramos lineales definidos. Esta técnica puede mejorar 
+        el contraste en diferentes rangos de intensidad.
+        </p>
+   </div>
+
+
+    <input  type="file" id="upload" accept="image/*">
+    <canvas id="linearImage"></canvas>
+    <button style="background-color:#FFD700" onclick="AplicarPiecewiseLinear()">Aplicar Piecewise Linear</button>
+    <button  style="background-color:#FFD700" onclick="reset()">Reset</button>
+
+    <script>
+        const linearCanvas = document.getElementById('linearImage');
+        const ctxLinear = linearCanvas.getContext('2d');
+
+        let originalImageData = null;
+
+        document.getElementById('upload').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    linearCanvas.width = img.width;
+                    linearCanvas.height = img.height;
+                    ctxLinear.drawImage(img, 0, 0);
+                    originalImageData = ctxLinear.getImageData(0, 0, img.width, img.height);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        function AplicarPiecewiseLinear() {
+            if (!originalImageData) return;
+
+            const imgData = ctxLinear.getImageData(0, 0, linearCanvas.width, linearCanvas.height);
+            const pixels = imgData.data;
+            const points = [[0, 0], [85, 128], [170, 200], [255, 255]]; // Definición de los tramos lineales
+            const linearPixels = new Uint8ClampedArray(pixels.length);
+
+            function getValue(input) {
+                for (let i = 1; i < points.length; i++) {
+                    const x1 = points[i - 1][0];
+                    const y1 = points[i - 1][1];
+                    const x2 = points[i][0];
+                    const y2 = points[i][1];
+                    if (input >= x1 && input <= x2) {
+                        const slope = (y2 - y1) / (x2 - x1);
+                        return y1 + slope * (input - x1);
+                    }
+                }
+                return input;
+            }
+
+            // Aplicar la transformación por tramos
+            for (let i = 0; i < pixels.length; i += 4) {
+                const newValue = Math.round(getValue(pixels[i]));
+                linearPixels[i] = linearPixels[i + 1] = linearPixels[i + 2] = newValue;
+                linearPixels[i + 3] = pixels[i + 3]; // Mantener la transparencia
+            }
+
+            ctxLinear.putImageData(new ImageData(linearPixels, linearCanvas.width, linearCanvas.height), 0, 0);
+        }
+
+        function reset() {
+            if (originalImageData) {
+                ctxLinear.putImageData(originalImageData, 0, 0);
+            }
+        }
+    </script>
+</body>
+</html>

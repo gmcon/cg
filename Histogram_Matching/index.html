@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histogram Matching</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body bgcolor="#ec7063">
+    <h1>Histogram Matching</h1>
+
+    <div id="descripcion">
+        <p>
+        El emparejamiento de histograma (Histogram Matching) es un proceso que transforma una imagen para que su 
+        histograma de niveles de intensidad coincida con el de una imagen objetivo. Este método es útil cuando 
+        se desea que una imagen tenga una distribución de intensidad similar a la de otra.
+        </p>
+   </div>
+
+
+    <input type="file" id="sourceImage" accept="image/*">
+    <canvas id="sourceCanvas"></canvas>
+    <input type="file" id="targetImage" accept="image/*">
+    <canvas id="targetCanvas"></canvas>
+    <canvas id="matchedImage"></canvas>
+    <button onclick="AplicarMatching()">Aplicar Matching</button>
+    <button onclick="reset()">Reset</button>
+
+    <script>
+        let sourceImageData, targetImageData;
+        const sourceCanvas = document.getElementById('sourceCanvas');
+        const targetCanvas = document.getElementById('targetCanvas');
+        const matchedCanvas = document.getElementById('matchedImage');
+        const ctxSource = sourceCanvas.getContext('2d');
+        const ctxTarget = targetCanvas.getContext('2d');
+        const ctxMatched = matchedCanvas.getContext('2d');
+
+        function loadImage(event, canvas, callback) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    callback(canvas.getContext('2d'), img);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(event.target.files[0]);
+        }
+
+        document.getElementById('sourceImage').addEventListener('change', function(e) {
+            loadImage(e, sourceCanvas, function(ctx, img) {
+                ctx.drawImage(img, 0, 0);
+                sourceImageData = ctx.getImageData(0, 0, img.width, img.height);
+            });
+        });
+
+        document.getElementById('targetImage').addEventListener('change', function(e) {
+            loadImage(e, targetCanvas, function(ctx, img) {
+                ctx.drawImage(img, 0, 0);
+                targetImageData = ctx.getImageData(0, 0, img.width, img.height);
+            });
+        });
+
+        function AplicarMatching() {
+            if (!sourceImageData || !targetImageData) return;
+
+            const sourcePixels = sourceImageData.data;
+            const targetPixels = targetImageData.data;
+            const matchedPixels = new Uint8ClampedArray(sourcePixels.length);
+
+            const sourceHist = new Array(256).fill(0);
+            const targetHist = new Array(256).fill(0);
+            const sourceCdf = new Array(256).fill(0);
+            const targetCdf = new Array(256).fill(0);
+            const mapping = new Array(256).fill(0);
+
+            // Calcular histograma para imagen de origen y objetivo
+            for (let i = 0; i < sourcePixels.length; i += 4) {
+                sourceHist[sourcePixels[i]]++;
+                targetHist[targetPixels[i]]++;
+            }
+
+            // Calcular CDF para imagen de origen y objetivo
+            sourceCdf[0] = sourceHist[0];
+            targetCdf[0] = targetHist[0];
+            for (let i = 1; i < 256; i++) {
+                sourceCdf[i] = sourceCdf[i - 1] + sourceHist[i];
+                targetCdf[i] = targetCdf[i - 1] + targetHist[i];
+            }
+
+            // Crear mapeo entre las dos imágenes
+            for (let i = 0; i < 256; i++) {
+                let j = 0;
+                do {
+                    mapping[i] = j;
+                    j++;
+                } while (j < 256 && sourceCdf[i] > targetCdf[j]);
+            }
+
+            // Aplicar el mapeo a la imagen de origen
+            for (let i = 0; i < sourcePixels.length; i += 4) {
+                const newValue = mapping[sourcePixels[i]];
+                matchedPixels[i] = matchedPixels[i + 1] = matchedPixels[i + 2] = newValue;
+                matchedPixels[i + 3] = sourcePixels[i + 3]; // Mantener la transparencia
+            }
+
+            matchedCanvas.width = sourceImageData.width;
+            matchedCanvas.height = sourceImageData.height;
+            ctxMatched.putImageData(new ImageData(matchedPixels, matchedCanvas.width, matchedCanvas.height), 0, 0);
+        }
+
+        function reset() {
+            ctxSource.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
+            ctxTarget.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+            ctxMatched.clearRect(0, 0, matchedCanvas.width, matchedCanvas.height);
+            sourceImageData = null;
+            targetImageData = null;
+        }
+    </script>
+</body>
+</html>

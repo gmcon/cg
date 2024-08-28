@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrast Stretching</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body bgcolor="#d7bde2">
+    <h1>Contrast Stretching</h1>
+
+    <div id="descripcion">
+        <p>
+        El estiramiento de contraste es un proceso que amplía la gama de niveles de intensidad de una imagen, 
+        mejorando así el contraste global. Esto es particularmente útil en imágenes donde los niveles de 
+        intensidad están agrupados cerca de un extremo del rango.
+        </p>
+   </div>
+
+    <input type="file" id="upload" accept="image/*">
+    <canvas id="stretchedImage"></canvas>
+    <label for="minValue">Min:</label>
+    <input type="range" min="0" max="255" id="minValue" value="0">
+    <label for="maxValue">Max:</label>
+    <input type="range" min="0" max="255" id="maxValue" value="255">
+    <button onclick="AplicarStretching()">Aplicar Stretching</button>
+    <button onclick="reset()">Reset</button>
+
+    <script>
+        const stretchedCanvas = document.getElementById('stretchedImage');
+        const ctxStretched = stretchedCanvas.getContext('2d');
+
+        let originalImageData = null;
+
+        document.getElementById('upload').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    stretchedCanvas.width = img.width;
+                    stretchedCanvas.height = img.height;
+                    ctxStretched.drawImage(img, 0, 0);
+                    originalImageData = ctxStretched.getImageData(0, 0, img.width, img.height);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        function AplicarStretching() {
+            if (!originalImageData) return;
+
+            const imgData = ctxStretched.getImageData(0, 0, stretchedCanvas.width, stretchedCanvas.height);
+            const pixels = imgData.data;
+            const minValue = parseInt(document.getElementById('minValue').value);
+            const maxValue = parseInt(document.getElementById('maxValue').value);
+            const stretchedPixels = new Uint8ClampedArray(pixels.length);
+
+            // Aplicar estiramiento de contraste
+            for (let i = 0; i < pixels.length; i += 4) {
+                let newValue = ((pixels[i] - minValue) / (maxValue - minValue)) * 255;
+                newValue = Math.max(0, Math.min(255, newValue));
+                stretchedPixels[i] = stretchedPixels[i + 1] = stretchedPixels[i + 2] = newValue;
+                stretchedPixels[i + 3] = pixels[i + 3]; // Mantener la transparencia
+            }
+
+            ctxStretched.putImageData(new ImageData(stretchedPixels, stretchedCanvas.width, stretchedCanvas.height), 0, 0);
+        }
+
+        function reset() {
+            if (originalImageData) {
+                ctxStretched.putImageData(originalImageData, 0, 0);
+                document.getElementById('minValue').value = 0;
+                document.getElementById('maxValue').value = 255;
+            }
+        }
+    </script>
+</body>
+</html>

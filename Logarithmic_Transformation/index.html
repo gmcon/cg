@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logarithmic Transformation</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body bgcolor="#ec407a">
+    <h1>Logarithmic Transformation</h1>
+
+    <div id="descripcion">
+        <p>
+        La transformación logarítmica es una técnica utilizada para expandir los valores de intensidad bajos y 
+        comprimir los valores altos en una imagen, lo que resulta en una mayor visibilidad de los detalles en 
+        áreas oscuras.
+        </p>
+   </div>
+
+    <input type="file" id="upload" accept="image/*">
+    <canvas id="logImage"></canvas>
+    <label for="logParameter">Parametro:</label>
+    <input type="range" min="0.1" max="2" step="0.1" id="logParameter" value="1">
+    <button onclick="AplicarLogTransformation()">Aplicar Log Transformation</button>
+    <button onclick="reset()">Reset</button>
+
+    <script>
+        const logCanvas = document.getElementById('logImage');
+        const ctxLog = logCanvas.getContext('2d');
+
+        let originalImageData = null;
+
+        document.getElementById('upload').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    logCanvas.width = img.width;
+                    logCanvas.height = img.height;
+                    ctxLog.drawImage(img, 0, 0);
+                    originalImageData = ctxLog.getImageData(0, 0, img.width, img.height);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        function AplicarLogTransformation() {
+            if (!originalImageData) return;
+
+            const imgData = ctxLog.getImageData(0, 0, logCanvas.width, logCanvas.height);
+            const pixels = imgData.data;
+            const logParameter = parseFloat(document.getElementById('logParameter').value);
+            const logPixels = new Uint8ClampedArray(pixels.length);
+
+            // Aplicar transformación logarítmica
+            for (let i = 0; i < pixels.length; i += 4) {
+                let newValue = Math.log(1 + pixels[i]) * (255 / Math.log(1 + 255 * logParameter));
+                logPixels[i] = logPixels[i + 1] = logPixels[i + 2] = newValue;
+                logPixels[i + 3] = pixels[i + 3]; // Mantener la transparencia
+            }
+
+            ctxLog.putImageData(new ImageData(logPixels, logCanvas.width, logCanvas.height), 0, 0);
+        }
+
+        function reset() {
+            if (originalImageData) {
+                ctxLog.putImageData(originalImageData, 0, 0);
+                document.getElementById('logParameter').value = 1;
+            }
+        }
+    </script>
+</body>
+</html>

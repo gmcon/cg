@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intensity Level Slicing</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body bgcolor="#f5b041">
+    <h1>Intensity Level Slicing</h1>
+
+    <div id="descripcion">
+        <p>
+        El corte de niveles de intensidad (Intensity Level Slicing) es un método que destaca ciertos rangos de 
+        intensidad en una imagen. Este proceso puede ser utilizado para resaltar características específicas 
+        dentro de una imagen.
+        </p>
+   </div>
+
+    <input type="file" id="upload" accept="image/*">
+    <canvas id="slicedImage"></canvas>
+    <label for="sliceMin">Min:</label>
+    <input type="range" min="0" max="255" id="sliceMin" value="100">
+    <label for="sliceMax">Max:</label>
+    <input type="range" min="0" max="255" id="sliceMax" value="200">
+    <button onclick="AplicarSlicing()">Aplicar Slicing</button>
+    <button onclick="reset()">Reset</button>
+
+    <script>
+        const slicedCanvas = document.getElementById('slicedImage');
+        const ctxSliced = slicedCanvas.getContext('2d');
+
+        let originalImageData = null;
+
+        document.getElementById('upload').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    slicedCanvas.width = img.width;
+                    slicedCanvas.height = img.height;
+                    ctxSliced.drawImage(img, 0, 0);
+                    originalImageData = ctxSliced.getImageData(0, 0, img.width, img.height);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        function AplicarSlicing() {
+            if (!originalImageData) return;
+
+            const imgData = ctxSliced.getImageData(0, 0, slicedCanvas.width, slicedCanvas.height);
+            const pixels = imgData.data;
+            const sliceMin = parseInt(document.getElementById('sliceMin').value);
+            const sliceMax = parseInt(document.getElementById('sliceMax').value);
+            const slicedPixels = new Uint8ClampedArray(pixels.length);
+
+            // Aplicar corte de niveles de intensidad
+            for (let i = 0; i < pixels.length; i += 4) {
+                let newValue = (pixels[i] >= sliceMin && pixels[i] <= sliceMax) ? 255 : pixels[i];
+                slicedPixels[i] = slicedPixels[i + 1] = slicedPixels[i + 2] = newValue;
+                slicedPixels[i + 3] = pixels[i + 3]; // Mantener la transparencia
+            }
+
+            ctxSliced.putImageData(new ImageData(slicedPixels, slicedCanvas.width, slicedCanvas.height), 0, 0);
+        }
+
+        function reset() {
+            if (originalImageData) {
+                ctxSliced.putImageData(originalImageData, 0, 0);
+                document.getElementById('sliceMin').value = 100;
+                document.getElementById('sliceMax').value = 200;
+            }
+        }
+    </script>
+</body>
+</html>

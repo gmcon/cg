@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Point Operations</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body bgcolor="#4caf50">
+    <h1>Point Operations</h1>
+
+    <div id="descripcion">
+        <p>
+        Las operaciones de punto son transformaciones aplicadas a los niveles de intensidad de los píxeles en 
+        una imagen, ajustando parámetros como brillo y contraste para mejorar o modificar la apariencia visual 
+        de la imagen.
+        </p>
+    </div>
+
+    <input type="file" id="upload" accept="image/*">
+    <canvas id="pointImage"></canvas>
+    <label for="brightness">Brillo:</label>
+    <input type="range" min="0" max="255" id="brightness" value="128">
+    <label for="contrast">Contraste:</label>
+    <input type="range" min="0" max="255" id="contrast" value="128">
+    <button onclick="AplicarPointOperation()">Aplicar Point Operation</button>
+    <button onclick="reset()">Reset</button>
+
+    <script>
+        const pointCanvas = document.getElementById('pointImage');
+        const ctxPoint = pointCanvas.getContext('2d');
+
+        let originalImageData = null;
+
+        document.getElementById('upload').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    pointCanvas.width = img.width;
+                    pointCanvas.height = img.height;
+                    ctxPoint.drawImage(img, 0, 0);
+                    originalImageData = ctxPoint.getImageData(0, 0, img.width, img.height);
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        function AplicarPointOperation() {
+            if (!originalImageData) return;
+
+            const imgData = ctxPoint.getImageData(0, 0, pointCanvas.width, pointCanvas.height);
+            const pixels = imgData.data;
+            const brightness = parseInt(document.getElementById('brightness').value);
+            const contrast = parseInt(document.getElementById('contrast').value);
+            const pointPixels = new Uint8ClampedArray(pixels.length);
+
+            // Aplicar operaciones de punto
+            for (let i = 0; i < pixels.length; i += 4) {
+                let newValue = pixels[i] + brightness - 128;
+                newValue = ((newValue - 128) * (contrast / 128)) + 128;
+                newValue = Math.max(0, Math.min(255, newValue));
+                pointPixels[i] = pointPixels[i + 1] = pointPixels[i + 2] = newValue;
+                pointPixels[i + 3] = pixels[i + 3]; // Mantener la transparencia
+            }
+
+            ctxPoint.putImageData(new ImageData(pointPixels, pointCanvas.width, pointCanvas.height), 0, 0);
+        }
+
+        function reset() {
+            if (originalImageData) {
+                ctxPoint.putImageData(originalImageData, 0, 0);
+                document.getElementById('brightness').value = 128;
+                document.getElementById('contrast').value = 128;
+            }
+        }
+    </script>
+</body>
+</html>
